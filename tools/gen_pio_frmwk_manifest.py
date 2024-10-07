@@ -7,9 +7,9 @@ import datetime
 
 MANIFEST_DATA = {
     "name": "framework-arduinoespressif32",
-    "description": "Platformio galtolight Arduino framework for the Espressif ESP32 series of SoCs",
-    "keywords": ["framework", "tasmota", "arduino", "espressif", "esp32"],
-    "license": "LGPL-2.1-or-later",
+    "description": "Platformio Arduino framework for the Espressif ESP32 series of SoCs",
+    "keywords": ["framework", "arduino", "espressif", "esp32"],
+    "license": "Apache",
     "repository": {
         "type": "git",
         "url": "https://github.com/lucasgalton/arduino-esp32",
