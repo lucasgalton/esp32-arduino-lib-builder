@@ -9,14 +9,17 @@ if ! [ -x "$(command -v git)" ]; then
     echo "ERROR: git is not installed! Please install git first."
     exit 1
 fi
+# Fixes building some components. See https://github.com/espressif/arduino-esp32/issues/10167
+export IDF_COMPONENT_OVERWRITE_MANAGED_COMPONENTS=1
 
-TARGET="all"
+CCACHE_ENABLE=1
+
+export TARGET="all"
 BUILD_TYPE="all"
 SKIP_ENV=0
 COPY_OUT=0
-if [ -z $DEPLOY_OUT ]; then
-    DEPLOY_OUT=0
-fi
+ARCHIVE_OUT=1
+DEPLOY_OUT=0
 
 function print_help() {
     echo "Usage: build.sh [-s] [-A <arduino_branch>] [-I <idf_branch>] [-i <idf_commit>] [-c <path>] [-t <target>] [-b <build|menuconfig|idf_libs|copy_bootloader|mem_variant>] [config ...]"
@@ -79,6 +82,14 @@ while getopts ":A:I:i:c:t:b:sd" opt; do
 done
 shift $((OPTIND -1))
 CONFIGS=$@
+
+export IDF_CCACHE_ENABLE=$CCACHE_ENABLE
+
+# Output the TARGET array
+echo "TARGET(s): ${TARGET[@]}"
+
+mkdir -p dist
+rm -rf dependencies.lock
 
 if [ $SKIP_ENV -eq 0 ]; then
     echo "* Installing/Updating ESP-IDF and all components..."

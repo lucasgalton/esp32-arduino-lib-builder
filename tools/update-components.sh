@@ -15,6 +15,7 @@ TINYUSB_REPO_URL="https://github.com/hathach/tinyusb.git"
 #
 echo "Updating ESP32 Arduino..."
 if [ ! -d "$AR_COMPS/arduino" ]; then
+  echo "Repo: $AR_REPO_URL"
 	git clone $AR_REPO_URL "$AR_COMPS/arduino"
 fi
 
