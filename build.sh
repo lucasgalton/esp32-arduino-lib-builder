@@ -128,12 +128,25 @@ if [ "$BUILD_TYPE" != "all" ]; then
 
     echo "idf.py -DIDF_TARGET=\"$TARGET\" -DSDKCONFIG_DEFAULTS=\"$configs\" $BUILD_TYPE"
     rm -rf build sdkconfig
-    idf.py -DIDF_TARGET="$TARGET" -DSDKCONFIG_DEFAULTS="$configs" $BUILD_TYPE
+    COMPONENTS_SUBSET=full idf.py -DIDF_TARGET="$TARGET" -DSDKCONFIG_DEFAULTS="$configs" $BUILD_TYPE
     if [ $? -ne 0 ]; then exit 1; fi
     exit 0
 fi
 
 rm -rf build sdkconfig out
+
+
+mkdir -p "$AR_TOOLS/esp32-arduino-libs"
+
+# Add release-info
+rm -rf release-info.txt
+IDF_Commit_short=$(git -C "$IDF_PATH" rev-parse --short HEAD || echo "")
+AR_Commit_short=$(git -C "$AR_COMPS/arduino" rev-parse --short HEAD || echo "")
+
+echo "Framework built from
+- $IDF_REPO branch [$IDF_BRANCH](https://github.com/$IDF_REPO/tree/$IDF_BRANCH) commit [$IDF_Commit_short](https://github.com/$IDF_REPO/commits/$IDF_BRANCH/#:~:text=$IDF_Commit_short)
+- $AR_REPO branch [$AR_BRANCH](https://github.com/$AR_REPO/tree/$AR_BRANCH) commit [$AR_Commit_short](https://github.com/$AR_REPO/commits/$AR_BRANCH/#:~:text=$AR_Commit_short)
+- Arduino lib builder branch: $GIT_BRANCH" >> release-info.txt
 
 # Add components version info
 mkdir -p "$AR_TOOLS/sdk" && rm -rf version.txt && rm -rf "$AR_TOOLS/sdk/versions.txt"
@@ -172,7 +185,7 @@ for target_json in `jq -c '.targets[]' configs/builds.json`; do
     done
     echo "* Build IDF-Libs: $idf_libs_configs"
     rm -rf build sdkconfig
-    idf.py -DIDF_TARGET="$target" -DSDKCONFIG_DEFAULTS="$idf_libs_configs" idf_libs
+    COMPONENTS_SUBSET=full idf.py -DIDF_TARGET="$target" -DSDKCONFIG_DEFAULTS="$idf_libs_configs" idf_libs
     if [ $? -ne 0 ]; then exit 1; fi
 
     # Build Bootloaders
@@ -183,7 +196,7 @@ for target_json in `jq -c '.targets[]' configs/builds.json`; do
         done
         echo "* Build BootLoader: $bootloader_configs"
         rm -rf build sdkconfig
-        idf.py -DIDF_TARGET="$target" -DSDKCONFIG_DEFAULTS="$bootloader_configs" copy_bootloader
+        COMPONENTS_SUBSET=none idf.py -DIDF_TARGET="$target" -DSDKCONFIG_DEFAULTS="$bootloader_configs" copy_bootloader
         if [ $? -ne 0 ]; then exit 1; fi
     done
 
@@ -195,7 +208,7 @@ for target_json in `jq -c '.targets[]' configs/builds.json`; do
         done
         echo "* Build Memory Variant: $mem_configs"
         rm -rf build sdkconfig
-        idf.py -DIDF_TARGET="$target" -DSDKCONFIG_DEFAULTS="$mem_configs" mem_variant
+        COMPONENTS_SUBSET=none idf.py -DIDF_TARGET="$target" -DSDKCONFIG_DEFAULTS="$mem_configs" mem_variant
         if [ $? -ne 0 ]; then exit 1; fi
     done
 done
@@ -212,11 +225,34 @@ if [ "$BUILD_TYPE" = "all" ]; then
     if [ $? -ne 0 ]; then exit 1; fi
 fi
 
-# copy everything to arduino-esp32 installation
-if [ $COPY_OUT -eq 1 ] && [ -d "$ESP32_ARDUINO" ]; then
-    ./tools/copy-to-arduino.sh
+export IDF_COMMIT=$(git -C "$IDF_PATH" rev-parse --short HEAD)
+
+# Generate PlatformIO library manifest file
+if [ "$BUILD_TYPE" = "all" ]; then
+    python3 ./tools/gen_pio_lib_manifest.py -o "$TOOLS_JSON_OUT/" -s "v$IDF_VERSION" -c "$IDF_COMMIT"
+    if [ $? -ne 0 ]; then exit 1; fi
 fi
 
-if [ $DEPLOY_OUT -eq 1 ]; then
-    ./tools/push-to-arduino.sh
+AR_VERSION=$(jq -c '.version' "$AR_COMPS/arduino/package.json" | tr -d '"')
+AR_VERSION_UNDERSCORE=`echo "$AR_VERSION" | tr . _`
+
+# Generate PlatformIO framework manifest file
+rm -rf "$AR_ROOT/package.json"
+if [ "$BUILD_TYPE" = "all" ]; then
+    python3 ./tools/gen_pio_frmwk_manifest.py -o "$AR_ROOT/" -s "v$AR_VERSION" -c "$IDF_COMMIT"
+    if [ $? -ne 0 ]; then exit 1; fi
 fi
+
+# Generate core_version.h
+rm -rf "$AR_ROOT/core_version.h"
+echo "#define ARDUINO_ESP32_GIT_VER 0x$AR_Commit_short
+#define ARDUINO_ESP32_GIT_DESC $AR_VERSION
+#define ARDUINO_ESP32_RELEASE_$AR_VERSION_UNDERSCORE
+#define ARDUINO_ESP32_RELEASE \"$AR_VERSION_UNDERSCORE\"" >> "$AR_ROOT/core_version.h"
+
+# archive the build
+if [ $ARCHIVE_OUT -eq 1 ]; then
+    ./tools/archive-build.sh "$TARGET"
+    if [ $? -ne 0 ]; then exit 1; fi
+fi
+
