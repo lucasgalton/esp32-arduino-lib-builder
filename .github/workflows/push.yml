@@ -1,14 +1,7 @@
 name: ESP32 Arduino Libs CI
 
 on:
-  push:
-    branches:
-    - custom_eth
-  pull_request:
-
-concurrency:
-  group: esp-idf-libs-${{github.event.pull_request.number || github.ref}}
-  cancel-in-progress: true
+  workflow_dispatch:  # Manually start a workflow
 
 jobs:
   build-libs:
@@ -16,16 +9,28 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [esp32, esp32s2, esp32s3, esp32c3]
+        target: [esp32]
       fail-fast: false
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: bash ./tools/prepare-ci.sh
+    - name: Get current branch
+      run: |
+        echo "GIT_BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_ENV
     - name: Build Libs for ${{ matrix.target }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
+        GIT_AUTHOR_EMAIL: ${{ secrets.PUSH_EMAIL }}
       run: bash ./build.sh -t ${{ matrix.target }}
-    - name: Upload archive
-      uses: actions/upload-artifact@v1
+    - name: Release
+      uses: jason2866/action-gh-release@v1.3
       with:
-        name: artifacts-${{ matrix.target }}
-        path: dist
+        tag_name: ${{ github.run_number }}
+        body_path: release-info.txt
+        prerelease: true
+        files: |
+          dist/framework*
+          release-info.txt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
