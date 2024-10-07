@@ -39,7 +39,7 @@ if [ ! -x $idf_was_installed ] || [ ! -x $commit_predefined ]; then
 
 	# Get the exact IDF version from file "version.txt"
   cd $IDF_PATH
-  export IDF_VERSION=$(<version.txt)
+  export IDF_VERSION="v4.4.4"
         echo "IDF version: $IDF_VERSION"
   cd -
 fi
