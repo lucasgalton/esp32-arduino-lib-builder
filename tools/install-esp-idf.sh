@@ -14,6 +14,7 @@ fi
 IDF_REPO_URL="https://github.com/lucasgalton/esp-idf.git"
 if [ ! -d "$IDF_PATH" ]; then
 	echo "ESP-IDF is not installed! Installing local copy"
+	echo "Checkout ESP-IDF $IDF_REPO_URL branch $IDF_BRANCH"
 	git clone $IDF_REPO_URL -b $IDF_BRANCH
 	idf_was_installed="1"
 fi
@@ -35,6 +36,12 @@ if [ ! -x $idf_was_installed ] || [ ! -x $commit_predefined ]; then
 	cd $IDF_PATH
 	patch -p1 -i ../patches/i2s.diff
 	cd -
+
+	# Get the exact IDF version from file "version.txt"
+  cd $IDF_PATH
+  export IDF_VERSION=$(<version.txt)
+        echo "IDF version: $IDF_VERSION"
+  cd -
 fi
 
 #
