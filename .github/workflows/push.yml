@@ -1,6 +1,9 @@
 name: ESP32 Arduino Libs CI
 
 on:
+  push:
+    branches:
+    - custom_eth
   workflow_dispatch:  # Manually start a workflow
 
 jobs:
